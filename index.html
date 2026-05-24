@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meu Controle Financeiro</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f9; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h1, h2 { text-align: center; color: #333; }
+        .resumo { display: flex; justify-content: space-between; margin-bottom: 20px; text-align: center; }
+        .resumo div { flex: 1; padding: 10px; margin: 0 5px; border-radius: 8px; font-weight: bold; color: white; }
+        .receitas { background-color: #4CAF50; }
+        .despesas { background-color: #F44336; }
+        .saldo { background-color: #2196F3; }
+        form { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+        input, select, button { padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 5px; }
+        button { background-color: #4CAF50; color: white; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background-color: #45a049; }
+        .lista-lancamentos { list-style: none; padding: 0; }
+        .item-lancamento { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #eee; }
+        .item-lancamento.receita { color: #4CAF50; }
+        .item-lancamento.despesa { color: #F44336; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Controle Financeiro</h1>
+    
+    <div class="resumo">
+        <div class="receitas">Receitas<br>R$ <span id="totalReceitas">0.00</span></div>
+        <div class="despesas">Despesas<br>R$ <span id="totalDespesas">0.00</span></div>
+        <div class="saldo">Saldo<br>R$ <span id="saldoAtual">0.00</span></div>
+    </div>
+
+    <h2>Adicionar Lançamento</h2>
+    <form id="formLancamento">
+        <input type="text" id="descricao" placeholder="Descrição (Ex: Cliente X, Conta de Luz)" required>
+        <input type="number" id="valor" step="0.01" placeholder="Valor (R$)" required>
+        <input type="date" id="data" required>
+        
+        <select id="tipo" required>
+            <option value="receita">Receita (Entrada)</option>
+            <option value="despesa">Despesa (Saída)</option>
+        </select>
+
+        <select id="categoria" required>
+            <option value="" disabled selected>Escolha a Categoria</option>
+            <option value="Corridas (inDrive/Ubcar)">Corridas (inDrive/Ubcar)</option>
+            <option value="Vendas (Adega do Barão)">Vendas (Adega do Barão)</option>
+            <option value="Combustível/Manutenção">Combustível/Manutenção Veículo</option>
+            <option value="Estoque de Bebidas">Estoque de Bebidas</option>
+            <option value="Preparatório (Polícia Civil)">Preparatório (Polícia Civil)</option>
+            <option value="Poupança Diária">Poupança Diária</option>
+            <option value="Alimentação">Alimentação</option>
+            <option value="Outros">Outros</option>
+        </select>
+
+        <button type="submit">Salvar</button>
+    </form>
+
+    <h2>Lançamentos do Mês</h2>
+    <ul class="lista-lancamentos" id="listaLancamentos">
+        <!-- Lançamentos aparecerão aqui -->
+    </ul>
+</div>
+
+<script>
+    // Conexão com o Supabase utilizando as suas chaves fornecidas
+    const SUPABASE_URL = 'https://pksorodvztmmeqnixnie.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBrc29yb2R2enRtbWVxbml4bmllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1OTYxNTUsImV4cCI6MjA5NTE3MjE1NX0.ZeH4qNN1xZtIKqvncX5_aODodU9rgEDk_6alC_kqEPs';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // Configurar a data de hoje no formulário
+    document.getElementById('data').valueAsDate = new Date();
+
+    // Função para carregar os dados do banco
+    async function carregarLancamentos() {
+        const { data: lancamentos, error } = await supabase
+            .from('lancamentos')
+            .select('*')
+            .order('data', { ascending: false });
+
+        if (error) {
+            console.error('Erro ao buscar dados:', error);
+            return;
+        }
+
+        atualizarTela(lancamentos);
+    }
+
+    // Função para atualizar a lista e o resumo
+    function atualizarTela(lancamentos) {
+        const lista = document.getElementById('listaLancamentos');
+        lista.innerHTML = '';
+        
+        let totalReceitas = 0;
+        let totalDespesas = 0;
+
+        lancamentos.forEach(item => {
+            const li = document.createElement('li');
+            li.className = `item-lancamento ${item.tipo}`;
+            li.innerHTML = `
+                <span><strong>${item.descricao}</strong> (${item.categoria}) <br> <small>${item.data}</small></span>
+                <span>R$ ${item.valor.toFixed(2)}</span>
+            `;
+            lista.appendChild(li);
+
+            if (item.tipo === 'receita') {
+                totalReceitas += item.valor;
+            } else {
+                totalDespesas += item.valor;
+            }
+        });
+
+        document.getElementById('totalReceitas').innerText = totalReceitas.toFixed(2);
+        document.getElementById('totalDespesas').innerText = totalDespesas.toFixed(2);
+        document.getElementById('saldoAtual').innerText = (totalReceitas - totalDespesas).toFixed(2);
+    }
+
+    // Função para salvar novo lançamento
+    document.getElementById('formLancamento').addEventListener('submit', async function(e) {
+        e.preventDefault(); // Evita recarregar a página
+
+        const novoLancamento = {
+            descricao: document.getElementById('descricao').value,
+            valor: parseFloat(document.getElementById('valor').value),
+            data: document.getElementById('data').value,
+            tipo: document.getElementById('tipo').value,
+            categoria: document.getElementById('categoria').value
+        };
+
+        const { data, error } = await supabase
+            .from('lancamentos')
+            .insert([novoLancamento]);
+
+        if (error) {
+            alert('Erro ao salvar lançamento!');
+            console.error(error);
+        } else {
+            alert('Salvo com sucesso!');
+            document.getElementById('formLancamento').reset();
+            document.getElementById('data').valueAsDate = new Date(); // Recoloca a data de hoje
+            carregarLancamentos(); // Atualiza a lista
+        }
+    });
+
+    // Carregar dados ao abrir o aplicativo
+    carregarLancamentos();
+</script>
+
+</body>
+</html>
