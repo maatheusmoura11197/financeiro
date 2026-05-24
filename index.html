@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Meu App Financeiro</title>
-    <!-- Conexão com o Banco de Dados -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- Biblioteca para Gráficos -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <style>
@@ -148,6 +146,7 @@
             box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
             border-top-left-radius: 15px;
             border-top-right-radius: 15px;
+            z-index: 999;
         }
 
         .menu-item {
@@ -174,7 +173,6 @@
         <h1>Meu App Financeiro</h1>
     </div>
 
-    <!-- TELA 1: PAINEL DE RESUMO E GRÁFICOS -->
     <div id="tela-painel" class="aba ativa">
         <div class="card-resumo">
             <p style="margin: 0; font-size: 14px; color: #6B7280;">Saldo Atual</p>
@@ -192,13 +190,16 @@
             </div>
         </div>
 
-        <div class="grafico-container">
+        <div class="grafico-container" id="boxGrafico" style="display: none;">
             <h3 style="margin-top: 0; font-size: 14px; text-align: center;">Despesas por Categoria</h3>
             <canvas id="meuGrafico"></canvas>
         </div>
+        
+        <div class="card-resumo" id="avisoVazio">
+            <p style="margin: 0; color: #6B7280; font-size: 14px;">Nenhum registo encontrado. Vá à aba "Adicionar" para começar!</p>
+        </div>
     </div>
 
-    <!-- TELA 2: ADICIONAR LANÇAMENTO -->
     <div id="tela-adicionar" class="aba">
         <div class="card-resumo" style="text-align: left;">
             <h2 style="margin-top: 0;">Novo Lançamento</h2>
@@ -226,12 +227,12 @@
                     <label>Categoria</label>
                     <select id="categoria" class="form-control" required>
                         <option value="" disabled selected>Selecione...</option>
-                        <option value="Corridas">Corridas (inDrive/Ubcar)</option>
-                        <option value="Vendas">Vendas (Adega)</option>
-                        <option value="Veículo">Manutenção/Combustível</option>
-                        <option value="Estoque">Estoque de Bebidas</option>
-                        <option value="Estudos">Estudos/Preparatório</option>
-                        <option value="Poupança">Poupança Diária</option>
+                        <option value="Corridas (inDrive/Ubcar)">Corridas (inDrive/Ubcar)</option>
+                        <option value="Vendas (Adega do Barão)">Vendas (Adega do Barão)</option>
+                        <option value="Combustível/Manutenção">Combustível/Manutenção Veículo</option>
+                        <option value="Estoque de Bebidas">Estoque de Bebidas</option>
+                        <option value="Preparatório (Polícia Civil)">Preparatório (Polícia Civil)</option>
+                        <option value="Poupança Diária">Poupança Diária</option>
                         <option value="Alimentação">Alimentação</option>
                         <option value="Outros">Outros</option>
                     </select>
@@ -247,15 +248,12 @@
         </div>
     </div>
 
-    <!-- TELA 3: HISTÓRICO DE LANÇAMENTOS -->
     <div id="tela-historico" class="aba">
         <h2 style="padding: 0 10px;">Histórico do Mês</h2>
         <ul class="lista-lancamentos" id="listaLancamentos">
-            <!-- Os itens do banco de dados entrarão aqui -->
-        </ul>
+            </ul>
     </div>
 
-    <!-- MENU INFERIOR DE NAVEGAÇÃO -->
     <div class="menu-inferior">
         <button class="menu-item ativo" onclick="navegarPara('tela-painel', this)">
             <span>📊</span>
@@ -276,14 +274,7 @@
 <script>
     /* ================= LÓGICA DO APLICATIVO ================= */
     
-    // 1. Chaves do Supabase mantidas
-    const SUPABASE_URL = 'https://pksorodvztmmeqnixnie.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBrc29yb2R2enRtbWVxbml4bmllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1OTYxNTUsImV4cCI6MjA5NTE3MjE1NX0.ZeH4qNN1xZtIKqvncX5_aODodU9rgEDk_6alC_kqEPs';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-    let graficoDespesas = null; // Variável para controlar o gráfico
-
-    // 2. Navegação entre as Abas
+    // 1. NAVEGAÇÃO ENTRE AS ABAS (Colocada no topo para funcionar de imediato)
     function navegarPara(idTela, botaoClicado) {
         // Esconde todas as abas
         document.querySelectorAll('.aba').forEach(aba => aba.classList.remove('ativa'));
@@ -295,60 +286,83 @@
         botaoClicado.classList.add('ativo');
     }
 
+    // Configuração das chaves do banco de dados
+    const SUPABASE_URL = 'https://pksorodvztmmeqnixnie.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBrc29yb2R2enRtbWVxbml4bmllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1OTYxNTUsImV4cCI6MjA5NTE3MjE1NX0.ZeH4qNN1xZtIKqvncX5_aODodU9rgEDk_6alC_kqEPs';
+    
+    let supabase;
+    let graficoDespesas = null;
+
+    // Inicialização segura do cliente Supabase
+    try {
+        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    } catch(e) {
+        console.error("Erro ao carregar o Supabase externo:", e);
+    }
+
     // Preencher a data de hoje no formulário automaticamente
     document.getElementById('data').valueAsDate = new Date();
 
-    // 3. Formatar número para Moeda Brasileira (R$)
+    // Formatar número para Moeda Brasileira (R$)
     function formatarMoeda(valor) {
         return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     }
 
-    // 4. Buscar os dados no Banco de Dados
+    // Buscar os dados no Banco de Dados com proteção contra falhas
     async function carregarLancamentos() {
-        const { data: lancamentos, error } = await supabase
-            .from('lancamentos')
-            .select('*')
-            .order('data', { ascending: false });
+        if (!supabase) return;
+        
+        try {
+            const { data: lancamentos, error } = await supabase
+                .from('lancamentos')
+                .select('*')
+                .order('data', { ascending: false });
 
-        if (error) {
-            console.error('Erro ao buscar dados:', error);
-            return;
+            if (error) {
+                console.error('Erro do Supabase:', error);
+                return;
+            }
+            
+            atualizarInterface(lancamentos || []);
+        } catch (err) {
+            console.error('Erro de conexão à rede:', err);
         }
-        atualizarInterface(lancamentos);
     }
 
-    // 5. Processar os dados e atualizar a tela
+    // Processar os dados e atualizar a tela com segurança
     function atualizarInterface(lancamentos) {
         const lista = document.getElementById('listaLancamentos');
-        lista.innerHTML = ''; // Limpa a lista antes de preencher
+        lista.innerHTML = ''; 
+        
+        if (lancamentos.length === 0) {
+            document.getElementById('boxGrafico').style.display = 'none';
+            document.getElementById('avisoVazio').style.display = 'block';
+            document.getElementById('totalReceitas').innerText = formatarMoeda(0);
+            document.getElementById('totalDespesas').innerText = formatarMoeda(0);
+            document.getElementById('saldoAtual').innerText = formatarMoeda(0);
+            return;
+        }
+
+        // Se chegámos aqui, existem dados!
+        document.getElementById('avisoVazio').style.display = 'none';
         
         let totalReceitas = 0;
         let totalDespesas = 0;
-        
-        // Objeto para somar as despesas por categoria para o gráfico
         const gastosPorCategoria = {};
 
         lancamentos.forEach(item => {
-            // Cálculos para o Resumo
             if (item.tipo === 'receita') {
-                totalReceitas += parseFloat(item.valor);
+                totalReceitas += parseFloat(item.valor || 0);
             } else {
-                totalDespesas += parseFloat(item.valor);
-                // Somar categorias para o gráfico
-                if(gastosPorCategoria[item.categoria]) {
-                    gastosPorCategoria[item.categoria] += parseFloat(item.valor);
-                } else {
-                    gastosPorCategoria[item.categoria] = parseFloat(item.valor);
-                }
+                totalDespesas += parseFloat(item.valor || 0);
+                const cat = item.categoria || 'Outros';
+                gastosPorCategoria[cat] = (gastosPorCategoria[cat] || 0) + parseFloat(item.valor || 0);
             }
 
-            // Converter data de AAAA-MM-DD para DD/MM/AAAA
-            const dataFormatada = item.data.split('-').reverse().join('/');
+            const dataFormatada = item.data ? item.data.split('-').reverse().join('/') : '../../....';
 
-            // Criar o item visual da lista
             const li = document.createElement('li');
             li.className = 'item-lancamento';
-            
             const classeValor = item.tipo === 'receita' ? 'receita' : 'despesa';
             const sinal = item.tipo === 'receita' ? '+' : '-';
 
@@ -358,38 +372,43 @@
                     <p>${item.categoria} • ${dataFormatada}</p>
                 </div>
                 <div class="item-valor ${classeValor}">
-                    ${sinal} ${formatarMoeda(item.valor)}
+                    ${sinal} ${formatarMoeda(item.valor || 0)}
                 </div>
             `;
             lista.appendChild(li);
         });
 
-        // Atualizar textos dos cartões no Painel
         document.getElementById('totalReceitas').innerText = formatarMoeda(totalReceitas);
         document.getElementById('totalDespesas').innerText = formatarMoeda(totalDespesas);
         document.getElementById('saldoAtual').innerText = formatarMoeda(totalReceitas - totalDespesas);
 
-        // Atualizar o Gráfico Visual
-        atualizarGrafico(gastosPorCategoria);
+        // Chamar o gráfico apenas se houver despesas registadas
+        if (Object.keys(gastosPorCategoria).length > 0) {
+            document.getElementById('boxGrafico').style.display = 'block';
+            atualizarGrafico(gastosPorCategoria);
+        } else {
+            document.getElementById('boxGrafico').style.display = 'none';
+        }
     }
 
-    // 6. Configuração do Gráfico (Chart.js)
+    // Configuração segura do Gráfico (Chart.js)
     function atualizarGrafico(dadosCategoria) {
-        const ctx = document.getElementById('meuGrafico').getContext('2d');
+        const canvas = document.getElementById('meuGrafico');
+        if (!canvas || !window.Chart) return;
         
-        // Destruir gráfico antigo para não sobrepor se atualizar
+        const ctx = canvas.getContext('2d');
         if (graficoDespesas) { graficoDespesas.destroy(); }
 
         const categorias = Object.keys(dadosCategoria);
         const valores = Object.values(dadosCategoria);
 
         graficoDespesas = new Chart(ctx, {
-            type: 'doughnut', // Tipo Pizza Vazada
+            type: 'doughnut',
             data: {
                 labels: categorias,
                 datasets: [{
                     data: valores,
-                    backgroundColor: ['#EF4444', '#F59E0B', '#3B82F6', '#8B5CF6', '#10B981', '#6B7280'],
+                    backgroundColor: ['#EF4444', '#F59E0B', '#3B82F6', '#8B5CF6', '#10B981', '#6B7280', '#EC4899', '#14B8A6'],
                     borderWidth: 0
                 }]
             },
@@ -397,13 +416,14 @@
         });
     }
 
-    // 7. Salvar Novo Lançamento no Banco
+    // Salvar Novo Lançamento no Banco
     document.getElementById('formLancamento').addEventListener('submit', async function(e) {
-        e.preventDefault(); // Evita recarregar a página
+        e.preventDefault(); 
+        if (!supabase) return;
 
-        // Trocar o texto do botão para mostrar que está carregando
         const btnSalvar = document.querySelector('.btn-salvar');
-        btnSalvar.innerText = "Salvando...";
+        btnSalvar.innerText = "A guardar...";
+        btnSalvar.disabled = true;
 
         const novoLancamento = {
             descricao: document.getElementById('descricao').value,
@@ -413,25 +433,30 @@
             categoria: document.getElementById('categoria').value
         };
 
-        const { data, error } = await supabase.from('lancamentos').insert([novoLancamento]);
+        try {
+            const { error } = await supabase.from('lancamentos').insert([novoLancamento]);
 
-        if (error) {
-            alert('Erro ao salvar lançamento!');
-            console.error(error);
-        } else {
-            // Sucesso!
-            document.getElementById('formLancamento').reset(); // Limpa form
-            document.getElementById('data').valueAsDate = new Date(); // Volta data de hoje
-            carregarLancamentos(); // Puxa os dados novos
-            
-            // Levar o usuário para a aba de histórico para ver o lançamento novo
-            document.querySelectorAll('.menu-item')[2].click(); 
+            if (error) {
+                alert('Erro ao guardar lançamento!');
+                console.error(error);
+            } else {
+                alert('Guardado com sucesso!');
+                document.getElementById('formLancamento').reset();
+                document.getElementById('data').valueAsDate = new Date(); 
+                await carregarLancamentos(); 
+                
+                // Redireciona o utilizador para ver o painel atualizado
+                document.querySelectorAll('.menu-item')[0].click(); 
+            }
+        } catch(err) {
+            alert('Erro crítico de rede ao guardar.');
+        } finally {
+            btnSalvar.innerText = "Salvar Lançamento";
+            btnSalvar.disabled = false;
         }
-        
-        btnSalvar.innerText = "Salvar Lançamento"; // Volta texto do botão
     });
 
-    // Iniciar o aplicativo carregando os dados
+    // Inicializar o carregamento de dados assim que a página abrir
     carregarLancamentos();
 </script>
 
