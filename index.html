@@ -1,74 +1,27 @@
-// DOCUMENTAÇÃO DA FUNÇÃO RENDERPIZZA CORRIGIDA
-function renderPizza(){
-  const catMap={};
-  // 1. Agrupa os lançamentos de despesa por categoria pai
-  lancamentos.filter(t=>t.tipo==='despesa').forEach(t=>{
-    const p=catPai(t.categoria);
-    catMap[p]=(catMap[p]||0)+Number(t.valor);
-  });
-  
-  const entries=Object.entries(catMap).sort((a,b)=>b[1]-a[1]);
-  
-  // Se não houver dados, limpa o gráfico e exibe mensagem de vazio
-  if(!entries.length){
-    document.getElementById('pizza-legenda').innerHTML='<div class="empty">Nenhuma despesa ainda.</div>';
-    if(pizzaChartInst){
-      pizzaChartInst.destroy();
-      pizzaChartInst=null;
-    }
-    return;
-  }
-  
-  // 2. Prepara os dados para o Chart.js
-  const total=entries.reduce((a,[,v])=>a+v,0);
-  const labels=entries.map(([c])=>c);
-  const vals=entries.map(([,v])=>v);
-  const cores=entries.map(([c])=>cor(c));
-  
-  const ctx=document.getElementById('pizzaChart').getContext('2d');
-  
-  // O SEGREDO DA CORREÇÃO: Verificamos se o gráfico já existe
-  if(pizzaChartInst){
-    // Apenas atualiza os dados existentes para evitar o loop de renderização
-    pizzaChartInst.data.labels = labels;
-    pizzaChartInst.data.datasets[0].data = vals;
-    pizzaChartInst.data.datasets[0].backgroundColor = cores;
-    pizzaChartInst.update(); // Atualiza o gráfico suavemente
-  } else {
-    // Cria a instância do gráfico pela primeira vez se não existir
-    pizzaChartInst=new Chart(ctx,{
-      type:'doughnut',
-      data:{
-        labels,
-        datasets:[{data:vals,backgroundColor:cores,borderColor:'#0d0d0d',borderWidth:3}]
-      },
-      options:{
-        responsive:true,
-        maintainAspectRatio:false,
-        plugins:{
-          legend:{display:false},
-          tooltip:{
-            callbacks:{
-              label:ctx=>{
-                const pct=Math.round(ctx.parsed/total*100);
-                return ` ${fmt(ctx.parsed)} (${pct}%)`;
-              }
-            }
-          }
-        },
-        cutout:'55%'
-      }
-    });
-  }
-  
-  // 3. Renderiza a legenda customizada em HTML abaixo do gráfico
-  document.getElementById('pizza-legenda').innerHTML=entries.map(([cat,val])=>{
-    const pct=Math.round(val/total*100);
-    return `<div class="pizza-leg-item">
-      <div class="pizza-leg-cor" style="background:${cor(cat)}"></div>
-      <div class="pizza-leg-nome">${emoji(cat)} ${cat}</div>
-      <div class="pizza-leg-pct">${pct}%</div>
-      <div class="pizza-leg-val">${fmt(val)}</div>
-    </div>`;
-  }).join('');
-}
+<div class="section" id="sec-graficos">
+  <div style="height:14px;"></div>
+  <div class="mes-nav">
+    <button onclick="mudarMes(-1)">‹</button>
+    <span class="mes-nome" id="mes-label3"></span>
+    <button onclick="mudarMes(1)">›</button>
+  </div>
+  <div class="card">
+    <div class="card-title">Resumo do mês</div>
+    <div id="graficos-resumo"><div class="empty">Nenhum dado ainda.</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Destaques</div>
+    <div id="destaques"><div class="empty">Nenhum dado ainda.</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Despesas por categoria</div>
+    <div id="graficos-cat"><div class="empty">Nenhuma despesa ainda.</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Gráfico de pizza</div>
+    <div class="pizza-wrap aberto" id="pizza-wrap" style="display: block;">
+      <canvas id="pizzaChart" height="300"></canvas>
+      <div class="pizza-legenda" id="pizza-legenda"></div>
+    </div>
+  </div>
+</div>
